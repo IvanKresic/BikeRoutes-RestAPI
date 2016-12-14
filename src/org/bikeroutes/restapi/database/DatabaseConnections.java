@@ -1,13 +1,21 @@
 package org.bikeroutes.restapi.database;
 
+import java.sql.CallableStatement;
 import java.sql.Connection;
 import java.sql.DatabaseMetaData;
 import java.sql.DriverManager;
 import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.sql.Statement;
+import java.util.ArrayList;
+import java.util.List;
 
-public abstract class DatabaseConnections {
+import org.bikeroutes.restapi.util.PopularRoutesType;
+
+import com.graphhopper.util.PointList;
+import com.graphhopper.util.shapes.GHPoint;
+
+public class DatabaseConnections {
 	static Connection connection;
 	Statement statement;
 	Statement stmt;
@@ -86,8 +94,8 @@ public abstract class DatabaseConnections {
 		                " lat_from        DOUBLE PRECISION   NOT NULL, " +
 		                " lng_from         DOUBLE PRECISION  NOT NULL, " +
 		                " lat_to        DOUBLE PRECISION   NOT NULL, " +
-		                " lng_to         DOUBLE PRECISION  NOT NULL)";
-					
+		                " lng_to         DOUBLE PRECISION  NOT NULL)";					
+				
 				stmt.executeUpdate(sqlUserRoutes);
 			}
 			
@@ -104,8 +112,21 @@ public abstract class DatabaseConnections {
 		                " lat_to        DOUBLE PRECISION   NOT NULL, " +
 		                " lng_to         DOUBLE PRECISION  NOT NULL, " +
 		                " counter     INT  NOT NULL)";
+				
+				String updateProcedure = "CREATE OR REPLACE FUNCTION"
+						+"upsert_popular_routes(path_id int, latFrom double, lngFrom double, latTo double, lngTo double)" 
+						+"RETURNS VOID AS $$"
+						+"DECLARE"
+						+"BEGIN"
+						 +"UPDATE popular_routes SET counter += 1 WHERE lat_from = latFrom and lng_from = lngFrom and lat_to = latTo and lng_to = lngTo;"
+						 +"IF NOT FOUND THEN"
+						 +"INSERT INTO popular_routes values (path_id, lat_from, lng_from, lat_to, lng_to, 1);"
+						 +"END IF;"
+						+"END;"
+						+"$$ LANGUAGE 'plpgsql';";
 					
 				stmt.executeUpdate(sqlPopularRoutes);
+				stmt.executeUpdate(updateProcedure);
 			}
 		
 		} catch (SQLException e) {
@@ -139,6 +160,7 @@ public abstract class DatabaseConnections {
 		
 		InsertIntoDatabase(queryUser);
 		
+		
 		/*
 		String queryPopular = "INSERT INTO popular_routes (path_id, lat_from, lng_from, lat_to, lng_to, counter) VALUES('"+uuid +"', "+ latFrom +
 				", "+lonFrom +", "+latTo +", "+lonTo +", "+counter +")";
@@ -147,33 +169,50 @@ public abstract class DatabaseConnections {
 	
 	public void insertIntoPopularRoute(int pathId, double latFrom, double lngFrom, double latTo, double lngTo)
 	{
-		String queryGetPopularRouteIfExists = "SELECT counter FROM popular_routes"+
-				" WHERE lat_from = " + latFrom
-				+"AND lng_from = " + lngFrom
-				+"AND lat_to = " + latTo
-				+"AND lng_to = " + lngTo;
+		String sqlCallPopularRoutesInsertionProcedure = "call upsert_popular_routes(?, ?, ?, ?, ?)";
+//		String queryGetPopularRouteIfExists = "SELECT counter FROM popular_routes"+
+//				" WHERE lat_from = " + latFrom
+//				+"AND lng_from = " + lngFrom
+//				+"AND lat_to = " + latTo
+//				+"AND lng_to = " + lngTo;
 		
-		/**
-		 * TODO
-		 * Ovo je najbolje riješiti pohranjenom procedurom koja æe raditi update polja counter
-		 * ako zapis veæ postoji, ili insert ako zapis ne postoji.
-		 */
+		try {
+			CallableStatement popularRoutesProcedure = connection.prepareCall(sqlCallPopularRoutesInsertionProcedure);
+			popularRoutesProcedure.setInt(1, pathId);
+			popularRoutesProcedure.setDouble(2, latFrom);
+			popularRoutesProcedure.setDouble(3, lngFrom);
+			popularRoutesProcedure.setDouble(4, latTo);
+			popularRoutesProcedure.setDouble(5, lngTo);
+			popularRoutesProcedure.execute();
+			
+		} catch (SQLException e) {
+			// TODO Auto-generated catch block
+			e.printStackTrace();
+		}
 	}	
 	
-	public void getMostPopularRoutes()
+	public List<PopularRoutesType> getMostPopularRoutes()
 	{
+		List<PopularRoutesType> popularRoutesList = new ArrayList<>();
+		PopularRoutesType popularRoute;
 		try {
 			tables = dbm.getTables(null, null, "popular_routes", null);
 			while(!tables.isAfterLast())
-			{
+			{						
+				popularRoute = new PopularRoutesType(tables.getDouble(2),
+													 tables.getDouble(3),
+													 tables.getDouble(4),
+													 tables.getDouble(5),
+													 tables.getInt(6));
 				
+				popularRoutesList.add(popularRoute);
 				tables.next();
 			}
 		} catch (SQLException e) {
 			// TODO Auto-generated catch block
 			e.printStackTrace();
 		}
-		
+		return popularRoutesList;		
 	}
 	
 }

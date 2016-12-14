@@ -1,9 +1,24 @@
 package org.bikeroutes.restapi.util;
 
-public class ApiResponses {
+import java.util.List;
 
-	public void getMostPopularRoutes()
+import org.bikeroutes.restapi.database.DatabaseConnections;
+import org.json.JSONObject;
+
+public class ApiResponses{
+	
+	private DatabaseConnections conn = new DatabaseConnections();	
+	
+	public JSONObject getMostPopularRoutes()
+	{		
+		JSONObject jsonObject = new JSONObject();
+		jsonObject.put("mostPopularRoutesData", conn.getMostPopularRoutes());
+		return jsonObject;
+	}	
+	
+	public void getMyRoutes(String uuid)
 	{
 		
 	}	
+	
 }
