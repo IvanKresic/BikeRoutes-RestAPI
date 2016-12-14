@@ -29,20 +29,8 @@ public class BikeRoutesApi extends DatabaseConnections {
 
 	@GET
 	@Produces("application/json")
-	public Response mostPopularRoutes() throws JSONException {
-
-		apiResponses.getMostPopularRoutes();
-		JSONObject jsonObject = new JSONObject();
-		getMostPopularRoutes();
-		PointList pl;
-		Double fahrenheit = 98.24;
-		Double celsius;
-		celsius = (fahrenheit - 32) * 5 / 9;
-		jsonObject.put("F Value", fahrenheit);
-		jsonObject.put("C Value", celsius);
-
-		JSONObject result = jsonObject;
-		return Response.status(200).entity(result).build();
+	public Response mostPopularRoutes() throws JSONException {		
+		return Response.status(200).entity(apiResponses.getMostPopularRoutes()).build();
 	}
 
 	@Path("{uuid}")
